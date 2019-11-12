@@ -2,7 +2,7 @@ device=0
 lr=0.9
 
 train-classification:
-	python sse_train.py --task_type=classification --data_dir=rawdata-classification --model_dir=models-classification   --device=$(device) --learning_rate=$(lr)  --max_epoc=50 --steps_per_checkpoint=200
+	python sse_train.py --task_type=classification --data_dir=rawdata-classification --model_dir=models-classification   --device=$(device) --learning_rate=$(lr)  --max_epoc=50 --steps_per_checkpoint=200 --network_mode=shared-encoder
 
 index-classification:
 	python sse_index.py  --idx_model_dir=models-classification --idx_rawfilename=targetIDs  --idx_encodedIndexFile=targetEncodingIndex.tsv
@@ -27,7 +27,7 @@ visualize-qna:
 
 
 train-ranking:
-	python sse_train.py --task_type=ranking --data_dir=rawdata-ranking --model_dir=models-ranking  --device=$(device) --learning_rate=$(lr) --embedding_size=30 --encoding_size=64 --max_seq_length=60  --batch_size=32 --max_epoc=200 --steps_per_checkpoint=200
+	python sse_train.py --task_type=ranking --data_dir=rawdata-ranking --model_dir=models-ranking  --device=$(device) --learning_rate=$(lr) --embedding_size=30 --encoding_size=64 --max_seq_length=60  --batch_size=32 --max_epoc=200 --steps_per_checkpoint=200 --network_mode=shared-encoder
 
 index-ranking:
 	python sse_index.py  --idx_model_dir=models-ranking --idx_rawfilename=targetIDs --idx_encodedIndexFile=targetEncodingIndex.tsv
