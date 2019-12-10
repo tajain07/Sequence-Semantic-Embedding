@@ -462,6 +462,7 @@ class SubwordTextEncoder(TextEncoder):
     Returns:
       a list of integers in the range [0, vocab_size)
     """
+    #print("tokens ", tokens)
     ret = []
     for token in tokens:
       ret.extend(

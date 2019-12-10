@@ -98,6 +98,7 @@ class Data(object):
 		train_batch = self.rawTrainPosCorpus[idx:idx+batch_size]
 		source_inputs, tgt_inputs, labels =  [], [], []
 		for pos_entry in train_batch:
+			print("pos_entry ", pos_entry)
 			source_tokens, verifiedTgtIds = pos_entry
 			curPosTgtId = numpy.random.choice(verifiedTgtIds)
 			posSets = set(verifiedTgtIds)

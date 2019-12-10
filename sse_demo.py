@@ -120,6 +120,7 @@ def demo(nbest):
 
       feed_dict = model.get_source_encoding_feed_dict(np.array([source_tokens]))
       model.set_forward_only(True)
+      model.set_output_keep_prob(1.0)
       sourceEncodings = sess.run( [model.src_seq_embedding], feed_dict= feed_dict )
       #sourceEncodings = sess.run([model.norm_src_seq_embedding], feed_dict=feed_dict)
       sourceEncodings = np.vstack(sourceEncodings)

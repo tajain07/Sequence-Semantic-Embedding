@@ -56,6 +56,8 @@ from six.moves import urllib
 from tensorflow.python.platform import gfile
 
 
+from load_embed import EmbedLoader
+
 def maybe_download(directory, filename, url):
   """Download filename from url unless it's already in directory."""
   if not os.path.exists(directory):
@@ -96,6 +98,7 @@ def get_data_set(rawDir, processedDir):
         if len(info) < 2:
           print('Warning: bad line in train pair data:%s' % line)
           continue
+        #print("writing to source file ", info)
         srcFile.write(info[0].lower() + '\n')
       for line in codecs.open(os.path.join(processedDir, 'EvalPairs'), 'r', 'utf-8'):
         info = line.strip().split('\t')
@@ -146,6 +149,8 @@ def gen_postive_corpus( pairfilename, encodedTargetSpace, encoder, max_seq_lengt
       continue
     source_tokens = encoder.encode(srcSeq.lower())
     seqlen = len(source_tokens)
+
+    print("srcSeq.lower() ", srcSeq, "source_tokens ", source_tokens)
     if seqlen > max_seq_length - 2:
       print(
         'Warning: Source Seq:\n %s \n Its seq length is:%d,  which is longer than MAX_SEQ_LENTH of %d. Try to increase limit!!!!' % (
@@ -186,15 +191,27 @@ def prepare_raw_data(raw_data_dir, processed_data_dir, vocabulary_size, max_seq_
   # create encoded TargetSpace Data
   encodedFullTargetSpace = {}
   tgtIdNameMap = {}
+  tokenToIdxMap = {}
+  max_token_id = -1
   encodedFullTargetFile = codecs.open(os.path.join(processed_data_dir, "encoded.FullTargetSpace"), 'w', 'utf-8')
   for line in codecs.open(os.path.join(processed_data_dir, "targetIDs"), 'r', 'utf-8'):
+    
     tgtSeq, id = line.strip().split('\t')
     token_ids = encoder.encode(tgtSeq.lower())
+    
     seqlen = len(token_ids)
+
+    '''Temp code'''
+    temp_max_token_id = max(token_ids)
+    if max_token_id == -1 or max_token_id < temp_max_token_id:
+      max_token_id = temp_max_token_id
+    '''' '''
+    
+
     if seqlen > max_seq_length - 2:
       print(
         'Warning: Target:\n %s \n Its seq length is:%d,  which is longer than MAX_SEQ_LENTH of %d. Try to increase limit!!!!' % (
-        tgtSeq, seqlen, max_seq_length))
+          tgtSeq, seqlen, max_seq_length))
       token_ids = [text_encoder.PAD_ID] + token_ids[:max_seq_length-2] + [text_encoder.EOS_ID]
     else:
       token_ids =  [text_encoder.PAD_ID] * (max_seq_length - seqlen - 1) + token_ids + [text_encoder.EOS_ID]
@@ -203,6 +220,7 @@ def prepare_raw_data(raw_data_dir, processed_data_dir, vocabulary_size, max_seq_
     encodedFullTargetFile.write(id + '\t' + tgtSeq.strip() + '\t' + ','.join([str(i) for i in token_ids]) + '\n')
   encodedFullTargetFile.close()
 
+  print("max_token_id ", max_token_id)
   # creat positive Evaluation corpus: (source_tokens, verifiedTgtIds )
   evalCorpus = gen_postive_corpus(os.path.join(processed_data_dir, "EvalPairs"), encodedFullTargetSpace, encoder,
                                   max_seq_length)

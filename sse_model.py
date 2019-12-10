@@ -124,6 +124,7 @@ class SSEModel(object):
     self.learning_rate_decay_op = self.learning_rate.assign( tf.maximum( self.learning_rate * float(modelParams['learning_rate_decay_factor']), 1e-3) )
     self.global_step = tf.Variable(0, name="global_step", trainable=False)
     self.targetSpaceSize = int(modelParams['targetSpaceSize'])
+    self.output_keep_prob = 1.0
 
 
     # setup basic model cell type to be LSTM or GRU or CNN
@@ -156,6 +157,7 @@ class SSEModel(object):
 
     #create word embedding vectors
     # note: both source and target sequence share same vocabulary and word embeddings
+    print("self.vocab_size ", self.vocab_size)
     self.word_embedding = tf.get_variable('word_embedding', [self.vocab_size, self.word_embed_size],
                                          initializer=tf.random_uniform_initializer(-0.25,0.25))
 
@@ -172,6 +174,8 @@ class SSEModel(object):
       self._shared_encoder_network()
     elif self.network_mode == 'source_only_cnn':
       self._cnn_encoder_network()
+    elif self.network_mode == 'shared-encoder-network-snapdeal':
+      self._shared_encoder_network_snapdeal()
     else:
       print('Error!! Unsupported network mode: %s. Please specify on: source-encoder-only, dual-encoder or shared-encoder.' % self.network_mode )
       exit(-1)
@@ -274,7 +278,32 @@ class SSEModel(object):
       tgt_last_output = tgt_output[-1]
       self.tgt_seq_embedding = tf.matmul(tgt_last_output, self.tgt_M)
 
+  def _shared_encoder_network_snapdeal(self):
+    # config SSE network to be shared encoder mode
+    # Build shared encoder
+    #dropout = 1.0
+    with tf.variable_scope('shared_encoder'):
+      
+      self.src_M = tf.get_variable('src_M', shape=[self.src_cell_size, self.seq_embed_size],
+                                   initializer=tf.truncated_normal_initializer())
 
+      self.tgt_M = tf.get_variable('tgt_M', shape=[self.src_cell_size, self.seq_embed_size],
+                                   initializer=tf.truncated_normal_initializer())
+
+      cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self.src_cell_size, forget_bias=1.0, state_is_tuple=True)
+
+      print("output_keep_prob ", self.output_keep_prob)
+      cell_drop = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.output_keep_prob)
+
+      src_rnn_outputs_val, _ = tf.contrib.rnn.static_rnn(cell_drop, tf.unstack(self.src_input_distributed, axis=1), dtype=tf.float32)
+      self.src_seq_embedding = tf.matmul(src_rnn_outputs_val[-1], self.src_M)
+
+    with tf.variable_scope('shared_encoder', reuse=True):
+      tgt_rnn_outputs_val, _ =  tf.contrib.rnn.static_rnn(cell_drop, tf.unstack(self.tgt_input_distributed, axis=1), dtype=tf.float32)
+      self.tgt_seq_embedding = tf.matmul(tgt_rnn_outputs_val[-1], self.tgt_M)
+
+  def get_rnn_cell(self):
+    return 
 
   def _def_loss(self):
     # compute src / tgt similarity
@@ -339,6 +368,9 @@ class SSEModel(object):
 
   def set_forward_only(self, forward_only=True):
     self.forward_only = forward_only
+
+  def set_output_keep_prob(self, output_keep_prob=1.0):
+    self.output_keep_prob = output_keep_prob
 
 
   def _def_predict(self):

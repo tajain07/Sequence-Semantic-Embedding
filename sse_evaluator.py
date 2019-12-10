@@ -100,6 +100,7 @@ class Evaluator(object):
     """
     acc = []
     self.model.set_forward_only(True)
+    self.model.set_output_keep_prob(1.0)
     for n in top_n:
       batchSize = 600
       batchacc = []

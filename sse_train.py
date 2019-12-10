@@ -54,6 +54,7 @@ from data import *
 import logging
 from logging.handlers import RotatingFileHandler
 from logging import handlers
+from load_embed import EmbedLoader
 
 
 
@@ -61,15 +62,15 @@ tf.app.flags.DEFINE_float("learning_rate", 0.9, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
                           "Learning rate decays by this much.")
 
-tf.app.flags.DEFINE_integer("batch_size", 64,
+tf.app.flags.DEFINE_integer("batch_size", 32,
                             "Batch size to use during training(positive pair count based).")
-tf.app.flags.DEFINE_integer("embedding_size", 50, "Size of word embedding vector.")
+tf.app.flags.DEFINE_integer("embedding_size", 300, "Size of word embedding vector.")
 tf.app.flags.DEFINE_integer("encoding_size", 64, "Size of sequence encoding vector. Same number of nodes for each model layer.")
 tf.app.flags.DEFINE_integer("src_cell_size", 96, "LSTM cell size in source RNN model.")
 tf.app.flags.DEFINE_integer("tgt_cell_size", 96, "LSTM cell size in target RNN model. Same number of nodes for each model layer.")
 tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 32000, "If no vocabulary file provided, will use this size to build vocabulary file from training data.")
-tf.app.flags.DEFINE_integer("max_seq_length", 80, "max number of words in each source or target sequence.")
+tf.app.flags.DEFINE_integer("max_seq_length", 10, "max number of words in each source or target sequence.")
 tf.app.flags.DEFINE_integer("max_epoc", 30, "max epoc number for training procedure.")
 tf.app.flags.DEFINE_integer("predict_nbest", 10, "max top N for evaluation prediction.")
 tf.app.flags.DEFINE_string("task_type", 'classification',
@@ -82,10 +83,13 @@ tf.app.flags.DEFINE_string("rawfilename", 'targetIDs', "raw target sequence file
 tf.app.flags.DEFINE_string("encodedIndexFile", 'targetEncodingIndex.tsv', "target sequece encoding index file.")
 
 tf.app.flags.DEFINE_string("device", "0", "Default to use GPU:0. Softplacement used, if no GPU found, further default to cpu:0.")
-tf.app.flags.DEFINE_string("network_mode", 'dual-encoder',
+tf.app.flags.DEFINE_string("network_mode", 'shared-encoder-network-snapdeal',
                             "Setup SSE network configration mode. SSE support three types of modes: source-encoder-only, dual-encoder, shared-encoder.")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
                             "How many training steps to do per checkpoint.")
+
+tf.app.flags.DEFINE_string("word2vec_model", "wiki.simple.vec", "word2vec pre-trained embeddings file (default: True)")
+tf.app.flags.DEFINE_string("word2vec_format", "text", "word2vec pre-trained embeddings file format (bin/text/textgz)(default: None)")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -138,6 +142,13 @@ def set_up_logging():
 
 
 def train():
+
+  #Load embedding
+  embeddingLoader = EmbedLoader()
+  embeddingLoader.loadW2V(FLAGS.word2vec_model, FLAGS.word2vec_format)
+
+  print("embedding vector ",embeddingLoader.getVocab("hello").shape)
+
   # Prepare data.
   logging.info("Preparing Train & Eval data in %s" % FLAGS.data_dir)
 
@@ -145,8 +156,11 @@ def train():
     if not os.path.exists(d):
       os.makedirs(d)
 
-  data = Data(FLAGS.model_dir,FLAGS.data_dir, FLAGS.vocab_size, FLAGS.max_seq_length)
+  data = Data(FLAGS.model_dir, FLAGS.data_dir, FLAGS.vocab_size, FLAGS.max_seq_length)
+  
   epoc_steps = len(data.rawTrainPosCorpus) /  FLAGS.batch_size
+
+  embeddingLoader.createTemporaryEmbedding( data.vocab_size, FLAGS.embedding_size)
 
   logging.info( "Training Data: %d total positive samples, each epoch need %d steps" % (len(data.rawTrainPosCorpus), epoc_steps ) )
 
@@ -167,6 +181,7 @@ def train():
         start_time = time.time()
         source_inputs, tgt_inputs, labels = data.get_train_batch(FLAGS.batch_size)
         model.set_forward_only(False)
+        model.set_output_keep_prob(0.5)
         d = model.get_train_feed_dict(source_inputs, tgt_inputs, labels)
         ops = [model.train, summary_op, model.loss, model.train_acc ]
         _, summary, step_loss, step_train_acc = sess.run(ops, feed_dict=d)
@@ -223,6 +238,7 @@ def train():
       # run task specific evaluation afer each epoch
       if (FLAGS.task_type not in ['ranking', 'crosslingual']) or ( (epoch+1) % 20 == 0 ):
         model.set_forward_only(True)
+        model.set_output_keep_prob(.5)
         sse_index.createIndexFile( model, data.encoder, os.path.join(FLAGS.model_dir, FLAGS.rawfilename), FLAGS.max_seq_length, os.path.join(FLAGS.model_dir, FLAGS.encodedIndexFile), sess, batchsize=1000 )
         evaluator = sse_evaluator.Evaluator(model, data.rawEvalCorpus, os.path.join(FLAGS.model_dir, FLAGS.encodedIndexFile) , sess)
         acc1, acc3, acc10 = evaluator.eval()
