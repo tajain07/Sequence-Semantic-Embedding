@@ -30,12 +30,15 @@ class EmbedLoader(object):
         
         #initW = tf.get_variable('word_embedding', [vocab_size, word_embed_size],initializer=tf.random_uniform_initializer(-0.25,0.25))
 
+        print("vocab_size ", vocab_size, " word_embed_size ", word_embed_size)
+        
         initW = np.random.uniform(-0.25,0.25,(vocab_size, word_embed_size))
         
         for key_, index in self.tokenToIndexMap.items():
             try:
                 key = (key_.replace("_", ""))
                 val = self.getVocab(key).reshape(300)
+                print("val shape ", val.shape)
                 initW[int(index)] = val
             except KeyError:
                 pass
