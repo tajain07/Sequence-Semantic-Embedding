@@ -70,7 +70,7 @@ tf.app.flags.DEFINE_integer("src_cell_size", 96, "LSTM cell size in source RNN m
 tf.app.flags.DEFINE_integer("tgt_cell_size", 96, "LSTM cell size in target RNN model. Same number of nodes for each model layer.")
 tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 32000, "If no vocabulary file provided, will use this size to build vocabulary file from training data.")
-tf.app.flags.DEFINE_integer("max_seq_length", 10, "max number of words in each source or target sequence.")
+tf.app.flags.DEFINE_integer("max_seq_length", 15, "max number of words in each source or target sequence.")
 tf.app.flags.DEFINE_integer("max_epoc", 30, "max epoc number for training procedure.")
 tf.app.flags.DEFINE_integer("predict_nbest", 10, "max top N for evaluation prediction.")
 tf.app.flags.DEFINE_string("task_type", 'classification',
@@ -97,7 +97,7 @@ os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]=FLAGS.device  # value can be 0,1,2, 3
 
 
-def create_model(session, targetSpaceSize, vocabsize, forward_only):
+def create_model(session, targetSpaceSize, vocabsize, forward_only, initW):
   """Create SSE model and initialize or load parameters in session."""
 
   modelParams = {'max_seq_length': FLAGS.max_seq_length, 'vocab_size': vocabsize,
@@ -109,8 +109,10 @@ def create_model(session, targetSpaceSize, vocabsize, forward_only):
 
   data_utils.save_model_configs(FLAGS.model_dir, modelParams)
 
-  model = sse_model.SSEModel( modelParams )
+  model = sse_model.SSEModel( modelParams, initW)
+  #model.word_embedding = initW
 
+  #print("word_embedding ", model.word_embedding[20350])
   ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
   if ckpt:
     logging.info("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -143,12 +145,6 @@ def set_up_logging():
 
 def train():
 
-  #Load embedding
-  embeddingLoader = EmbedLoader()
-  embeddingLoader.loadW2V(FLAGS.word2vec_model, FLAGS.word2vec_format)
-
-  print("embedding vector ",embeddingLoader.getVocab("hello").shape)
-
   # Prepare data.
   logging.info("Preparing Train & Eval data in %s" % FLAGS.data_dir)
 
@@ -158,15 +154,25 @@ def train():
 
   data = Data(FLAGS.model_dir, FLAGS.data_dir, FLAGS.vocab_size, FLAGS.max_seq_length)
   
+  #print("actual vocab size ", data.vocab_size)
   epoc_steps = len(data.rawTrainPosCorpus) /  FLAGS.batch_size
 
-  embeddingLoader.createTemporaryEmbedding( data.vocab_size, FLAGS.embedding_size)
+  # Loading embedding vector
+  embeddingLoader = EmbedLoader()
+  embeddingLoader.loadW2V(FLAGS.word2vec_model, FLAGS.word2vec_format)
+  embeddingLoader.loadVocabWithIndex(processed_dir=FLAGS.model_dir)
+
+
+  #print("embedding vector ",embeddingLoader.getVocab("caramel"))
+  initW = embeddingLoader.createTemporaryEmbedding(data.vocab_size, FLAGS.embedding_size)
+  #print("initW ", initW[20350])
+
 
   logging.info( "Training Data: %d total positive samples, each epoch need %d steps" % (len(data.rawTrainPosCorpus), epoc_steps ) )
 
   cfg = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)
   with tf.Session(config=cfg) as sess:
-    model = create_model( sess, data.rawnegSetLen, data.vocab_size, False )
+    model = create_model( sess, data.rawnegSetLen, data.vocab_size, False, initW )
 
     #setup tensorboard logging
     sw =  tf.summary.FileWriter( logdir=FLAGS.model_dir,  graph=sess.graph, flush_secs=120)

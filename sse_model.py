@@ -91,7 +91,7 @@ class SSEModel(object):
 
   # Number of target sequences returned by prediction operation
 
-  def __init__(self, modelParams ):
+  def __init__(self, modelParams, initW ):
 
     """ Create the Sequence Semantic Embedding Model.
 
@@ -131,7 +131,7 @@ class SSEModel(object):
     # TODO: enhence for CNN basic unit later
 
     # Setup Source internal RNN Cell in tensoflow graph
-    self._create_embedders()
+    self._create_embedders(initW)
     self._def_loss()
     self._def_optimize()
     self._def_predict()
@@ -148,7 +148,7 @@ class SSEModel(object):
     relevant = tf.gather(flat, idx)
     return relevant
 
-  def _create_embedders(self):
+  def _create_embedders(self, initW):
 
     #placeholder for input data
     self._src_input_data = tf.placeholder(tf.int32, [None, self.MAX_SEQ_LENGTH], name='source_sequence')
@@ -158,10 +158,13 @@ class SSEModel(object):
     #create word embedding vectors
     # note: both source and target sequence share same vocabulary and word embeddings
     print("self.vocab_size ", self.vocab_size)
-    self.word_embedding = tf.get_variable('word_embedding', [self.vocab_size, self.word_embed_size],
-                                         initializer=tf.random_uniform_initializer(-0.25,0.25))
+    
+    #self.word_embedding = tf.get_variable('word_embedding', [self.vocab_size, self.word_embed_size],initializer=tf.random_uniform_initializer(-0.25,0.25))
 
+    self.word_embedding = initW
     #transform input tensors from tokenID to word embedding
+    #print("self._src_input_data ",self._src_input_data)
+    #print("self._tgt_input_data ",self._tgt_input_data)
     self.src_input_distributed = tf.nn.embedding_lookup( self.word_embedding, self._src_input_data, name='dist_source')
     self.tgt_input_distributed = tf.nn.embedding_lookup( self.word_embedding, self._tgt_input_data, name='dist_target')
 
@@ -451,6 +454,9 @@ class SSEModel(object):
     d[self._src_input_data] = np.array(srcSeqs, dtype=np.int32)
     d[self._labels] = np.array(labels, dtype=np.float32)
     d[self._tgt_input_data] = np.array(tgtSeqs, dtype=np.int32)
+    #print("srcSeqs ", srcSeqs, "tgtSeqs ", tgtSeqs)
+  
+    #print("d ",d)
     return d
 
   def get_source_encoding_feed_dict(self, srcSeqs):

@@ -759,3 +759,10 @@ class SubwordTextEncoder(TextEncoder):
     with tf.gfile.Open(filename, "w") as f:
       for subtoken_string in self._all_subtoken_strings:
         f.write("'" + unicode_to_native(subtoken_string) + "'\n")
+
+  def store_wordIndex_to_file(self, filename):
+      print("vocab length assumed ", len(self._subtoken_string_to_id))
+      with tf.gfile.Open(filename, "w") as f:
+        for key, value in self._subtoken_string_to_id.items():
+          f.write("%s,%s\n"%(unicode_to_native(key), value))
+

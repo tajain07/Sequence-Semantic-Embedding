@@ -150,7 +150,7 @@ def gen_postive_corpus( pairfilename, encodedTargetSpace, encoder, max_seq_lengt
     source_tokens = encoder.encode(srcSeq.lower())
     seqlen = len(source_tokens)
 
-    print("srcSeq.lower() ", srcSeq, "source_tokens ", source_tokens)
+    #print("srcSeq.lower() ", srcSeq, "source_tokens ", source_tokens)
     if seqlen > max_seq_length - 2:
       print(
         'Warning: Source Seq:\n %s \n Its seq length is:%d,  which is longer than MAX_SEQ_LENTH of %d. Try to increase limit!!!!' % (
@@ -177,6 +177,7 @@ def prepare_raw_data(raw_data_dir, processed_data_dir, vocabulary_size, max_seq_
 
   # generate vocab file if not available, otherwise, use supplied vocab file for encoder
   vocabFile = processed_data_dir + '/vocabulary.txt'
+  wordToIndexFile = processed_data_dir + '/wordToIndex.csv'
   if gfile.Exists(vocabFile):
     print("Loading supplied vocabluary file: %s" % vocabFile)
     encoder = text_encoder.SubwordTextEncoder(filename=vocabFile)
@@ -186,6 +187,7 @@ def prepare_raw_data(raw_data_dir, processed_data_dir, vocabulary_size, max_seq_
     token_counts = tokenizer.corpus_token_counts(processed_data_dir + '/*.Corpus', 1000000, split_on_newlines=True)
     encoder = text_encoder.SubwordTextEncoder.build_to_target_size(vocabulary_size, token_counts, 2, 1000)
     encoder.store_to_file(vocabFile)
+    encoder.store_wordIndex_to_file(wordToIndexFile)
     print("New vocabulary constructed.")
 
   # create encoded TargetSpace Data
