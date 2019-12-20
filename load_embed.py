@@ -45,7 +45,7 @@ class EmbedLoader(object):
         for key_, index in self.tokenToIndexMap.items():
             try:
                 key = (key_.replace("_", ""))
-                val = self.getVocab(key).reshape(300)
+                val = self.getVocab(key).ravel()
                 #print("val shape ", val.shape)
                 initW[int(index)] = val
             except KeyError:
