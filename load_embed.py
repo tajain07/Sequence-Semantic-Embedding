@@ -3,8 +3,13 @@ import numpy as np
 import tensorflow as tf
 
 class EmbedLoader(object):
-    pre_emb = dict()
-    tokenToIndexMap = {}
+
+    def __init__(self):
+        
+        """ Initializing word_embedding with W2V """
+
+        self.pre_emb = dict()
+        self.tokenToIndexMap = {}
     
     def loadW2V(self, emb_path, type = "bin"):
         num_keys = 0
@@ -13,6 +18,9 @@ class EmbedLoader(object):
                 l = line.strip().split()
                 st = l[0].lower()
                 self.pre_emb[st] = np.asarray([l[1:]])
+
+    def getLocalIndexForVocab(self, word):
+        return self.tokenToIndexMap.get(word, "NOT FOUND")
 
     def loadVocabWithIndex(self, processed_dir):
         wordToIndexFile = processed_dir + '/wordToIndex.csv'
@@ -38,11 +46,12 @@ class EmbedLoader(object):
             try:
                 key = (key_.replace("_", ""))
                 val = self.getVocab(key).reshape(300)
-                print("val shape ", val.shape)
+                #print("val shape ", val.shape)
                 initW[int(index)] = val
             except KeyError:
                 pass
                 #print("key not found ", key)
 
+        #print("initW ", initW[1813])
         return tf.convert_to_tensor(initW, dtype=tf.float32)
         #return initW

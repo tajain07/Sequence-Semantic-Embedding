@@ -54,8 +54,6 @@ from data import *
 import logging
 from logging.handlers import RotatingFileHandler
 from logging import handlers
-from load_embed import EmbedLoader
-
 
 
 tf.app.flags.DEFINE_float("learning_rate", 0.9, "Learning rate.")
@@ -97,7 +95,7 @@ os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]=FLAGS.device  # value can be 0,1,2, 3
 
 
-def create_model(session, targetSpaceSize, vocabsize, forward_only, initW):
+def create_model(session, targetSpaceSize, vocabsize, forward_only):
   """Create SSE model and initialize or load parameters in session."""
 
   modelParams = {'max_seq_length': FLAGS.max_seq_length, 'vocab_size': vocabsize,
@@ -105,11 +103,12 @@ def create_model(session, targetSpaceSize, vocabsize, forward_only, initW):
                  'learning_rate': FLAGS.learning_rate, 'learning_rate_decay_factor': FLAGS.learning_rate_decay_factor,
                  'src_cell_size':FLAGS.src_cell_size, 'tgt_cell_size':FLAGS.tgt_cell_size,
                  'network_mode': FLAGS.network_mode, 'predict_nbest':FLAGS.predict_nbest,
-                 'targetSpaceSize':targetSpaceSize, 'forward_only': forward_only}
+                 'targetSpaceSize':targetSpaceSize, 'forward_only': forward_only, 'word2vec_model': FLAGS.word2vec_model,
+                 'word2vec_format': FLAGS.word2vec_format, 'model_dir': FLAGS.model_dir}
 
   data_utils.save_model_configs(FLAGS.model_dir, modelParams)
 
-  model = sse_model.SSEModel( modelParams, initW)
+  model = sse_model.SSEModel( modelParams)
   #model.word_embedding = initW
 
   #print("word_embedding ", model.word_embedding[20350])
@@ -125,7 +124,6 @@ def create_model(session, targetSpaceSize, vocabsize, forward_only, initW):
       logging.info("Created model with fresh parameters.")
       session.run(tf.global_variables_initializer())
   return model
-
 
 
 def set_up_logging():
@@ -157,22 +155,11 @@ def train():
   #print("actual vocab size ", data.vocab_size)
   epoc_steps = len(data.rawTrainPosCorpus) /  FLAGS.batch_size
 
-  # Loading embedding vector
-  embeddingLoader = EmbedLoader()
-  embeddingLoader.loadW2V(FLAGS.word2vec_model, FLAGS.word2vec_format)
-  embeddingLoader.loadVocabWithIndex(processed_dir=FLAGS.model_dir)
-
-
-  #print("embedding vector ",embeddingLoader.getVocab("caramel"))
-  initW = embeddingLoader.createTemporaryEmbedding(data.vocab_size, FLAGS.embedding_size)
-  #print("initW ", initW[20350])
-
-
   logging.info( "Training Data: %d total positive samples, each epoch need %d steps" % (len(data.rawTrainPosCorpus), epoc_steps ) )
 
   cfg = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)
   with tf.Session(config=cfg) as sess:
-    model = create_model( sess, data.rawnegSetLen, data.vocab_size, False, initW )
+    model = create_model( sess, data.rawnegSetLen, data.vocab_size, False)
 
     #setup tensorboard logging
     sw =  tf.summary.FileWriter( logdir=FLAGS.model_dir,  graph=sess.graph, flush_secs=120)

@@ -84,14 +84,13 @@ import tensorflow as tf
 
 import data_utils
 from tensorflow.contrib.rnn import stack_bidirectional_rnn
-
-
+from load_embed import EmbedLoader
 
 class SSEModel(object):
 
   # Number of target sequences returned by prediction operation
 
-  def __init__(self, modelParams, initW ):
+  def __init__(self, modelParams):
 
     """ Create the Sequence Semantic Embedding Model.
 
@@ -125,13 +124,28 @@ class SSEModel(object):
     self.global_step = tf.Variable(0, name="global_step", trainable=False)
     self.targetSpaceSize = int(modelParams['targetSpaceSize'])
     self.output_keep_prob = 1.0
+    self.word2vec_model = modelParams['word2vec_model']
+    self.word2vec_format = modelParams['word2vec_format']
+    self.model_dir = modelParams['model_dir']
+
+    # Loading embedding vector
+    embeddingLoader = EmbedLoader()
+
+    embeddingLoader.loadW2V(self.word2vec_model, self.word2vec_format)
+    embeddingLoader.loadVocabWithIndex(processed_dir=self.model_dir)
+
+    #print("embedding vector ",embeddingLoader.getVocab("caramel"))
+    self.initW = embeddingLoader.createTemporaryEmbedding(self.vocab_size, self.word_embed_size)
+    #print("w2v embedding ",embeddingLoader.getVocab('shoe'))
+    #print("index ",embeddingLoader.getLocalIndexForVocab('shoe'))
+    #print("initW vector ", self.initW[int(embeddingLoader.getLocalIndexForVocab('shoe'))])
 
 
     # setup basic model cell type to be LSTM or GRU or CNN
     # TODO: enhence for CNN basic unit later
 
     # Setup Source internal RNN Cell in tensoflow graph
-    self._create_embedders(initW)
+    self._create_embedders()
     self._def_loss()
     self._def_optimize()
     self._def_predict()
@@ -148,7 +162,7 @@ class SSEModel(object):
     relevant = tf.gather(flat, idx)
     return relevant
 
-  def _create_embedders(self, initW):
+  def _create_embedders(self):
 
     #placeholder for input data
     self._src_input_data = tf.placeholder(tf.int32, [None, self.MAX_SEQ_LENGTH], name='source_sequence')
@@ -161,7 +175,7 @@ class SSEModel(object):
     
     #self.word_embedding = tf.get_variable('word_embedding', [self.vocab_size, self.word_embed_size],initializer=tf.random_uniform_initializer(-0.25,0.25))
 
-    self.word_embedding = initW
+    self.word_embedding = self.initW
     #transform input tensors from tokenID to word embedding
     #print("self._src_input_data ",self._src_input_data)
     #print("self._tgt_input_data ",self._tgt_input_data)
