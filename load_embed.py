@@ -35,7 +35,6 @@ class EmbedLoader(object):
         return (self.pre_emb[word])
         
     def createTemporaryEmbedding(self, vocab_size, word_embed_size):
-        
         #initW = tf.get_variable('word_embedding', [vocab_size, word_embed_size],initializer=tf.random_uniform_initializer(-0.25,0.25))
 
         print("vocab_size ", vocab_size, " word_embed_size ", word_embed_size)
@@ -46,12 +45,9 @@ class EmbedLoader(object):
             try:
                 key = (key_.replace("_", ""))
                 val = self.getVocab(key).ravel()
-                #print("val shape ", val.shape)
                 initW[int(index)] = val
             except KeyError:
-                pass
-                #print("key not found ", key)
-
-        #print("initW ", initW[1813])
+                print("KeyError found for key_", key_)
+            except ValueError:
+                print("ValueError found for key_", key_)
         return tf.convert_to_tensor(initW, dtype=tf.float32)
-        #return initW

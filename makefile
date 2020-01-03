@@ -1,8 +1,11 @@
 device=0
 lr=0.9
 
+train-reformulator:
+	python sse_train.py --task_type=classification --data_dir=rawdata-classification --model_dir=models-classification   --device=$(device) --learning_rate=$(lr)  --max_epoc=50 --steps_per_checkpoint=200 --network_mode=shared-encoder-reformulator
+
 train-classification:
-	python sse_train.py --task_type=classification --data_dir=rawdata-classification --model_dir=models-classification   --device=$(device) --learning_rate=$(lr)  --max_epoc=50 --steps_per_checkpoint=200 --network_mode=shared-encoder-network-snapdeal
+	python sse_train.py --task_type=classification --data_dir=rawdata-classification --model_dir=models-classification   --device=$(device) --learning_rate=$(lr)  --max_epoc=50 --steps_per_checkpoint=200 --network_mode=shared-encoder
 
 index-classification:
 	python sse_index.py  --idx_model_dir=models-classification --idx_rawfilename=targetIDs  --idx_encodedIndexFile=targetEncodingIndex.tsv

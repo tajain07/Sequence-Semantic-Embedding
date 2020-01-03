@@ -191,8 +191,8 @@ class SSEModel(object):
       self._shared_encoder_network()
     elif self.network_mode == 'source_only_cnn':
       self._cnn_encoder_network()
-    elif self.network_mode == 'shared-encoder-network-snapdeal':
-      self._shared_encoder_network_snapdeal()
+    elif self.network_mode == 'shared-encoder-reformulator':
+      self._shared_encoder_network_reformulator()
     else:
       print('Error!! Unsupported network mode: %s. Please specify on: source-encoder-only, dual-encoder or shared-encoder.' % self.network_mode )
       exit(-1)
@@ -295,32 +295,53 @@ class SSEModel(object):
       tgt_last_output = tgt_output[-1]
       self.tgt_seq_embedding = tf.matmul(tgt_last_output, self.tgt_M)
 
-  def _shared_encoder_network_snapdeal(self):
+  def _shared_encoder_network_reformulator(self):
     # config SSE network to be shared encoder mode
     # Build shared encoder
     #dropout = 1.0
     with tf.variable_scope('shared_encoder'):
       
-      self.src_M = tf.get_variable('src_M', shape=[self.src_cell_size, self.seq_embed_size],
+      self.src_M = tf.get_variable('src_M', shape=[self.src_cell_size*2, self.seq_embed_size],
                                    initializer=tf.truncated_normal_initializer())
 
-      self.tgt_M = tf.get_variable('tgt_M', shape=[self.src_cell_size, self.seq_embed_size],
+      self.tgt_M = tf.get_variable('tgt_M', shape=[self.src_cell_size*2, self.seq_embed_size],
                                    initializer=tf.truncated_normal_initializer())
 
-      cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self.src_cell_size, forget_bias=1.0, state_is_tuple=True)
+      input_src = tf.unstack(self.src_input_distributed, axis=1)
+      input_tgt = tf.unstack(self.tgt_input_distributed, axis=1)
 
-      print("output_keep_prob ", self.output_keep_prob)
-      cell_drop = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.output_keep_prob)
+      fwd_cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self.src_cell_size, forget_bias=1.0, state_is_tuple=True)
+      bck_cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self.src_cell_size, forget_bias=1.0, state_is_tuple=True)
 
-      src_rnn_outputs_val, _ = tf.contrib.rnn.static_rnn(cell_drop, tf.unstack(self.src_input_distributed, axis=1), dtype=tf.float32)
-      self.src_seq_embedding = tf.matmul(src_rnn_outputs_val[-1], self.src_M)
+      fwd_cell_drop = tf.contrib.rnn.DropoutWrapper(fwd_cell, output_keep_prob=self.output_keep_prob)
+      bck_cell_drop = tf.contrib.rnn.DropoutWrapper(bck_cell, output_keep_prob=self.output_keep_prob)
+
+      src_output, src_hidden_state_fw, src_hidden_state_bw = tf.contrib.rnn.static_bidirectional_rnn(fwd_cell_drop,
+                                              bck_cell_drop, 
+                                              input_src, 
+                                              dtype=tf.float32)
+    
+      #print(src_hidden_state_fw)
+      #print(src_hidden_state_bw)
+      src_hidden = [src_hidden_state_fw, src_hidden_state_bw]
+      #print(src_hidden)
+      h1 = tf.norm(src_hidden_state_fw, ord = 1, axis = 1)
+      #print(h1)
+      #src_last_output = src_outp
+      #self.src_seq_embedding = tf.matmul(src_last_output, self.src_M)
 
     with tf.variable_scope('shared_encoder', reuse=True):
-      tgt_rnn_outputs_val, _ =  tf.contrib.rnn.static_rnn(cell_drop, tf.unstack(self.tgt_input_distributed, axis=1), dtype=tf.float32)
-      self.tgt_seq_embedding = tf.matmul(tgt_rnn_outputs_val[-1], self.tgt_M)
 
-  def get_rnn_cell(self):
-    return 
+      tgt_output, tgt_hidden_state_fw, tgt_hidden_state_bw = tf.contrib.rnn.static_bidirectional_rnn(fwd_cell_drop, 
+                                              bck_cell_drop, 
+                                              input_tgt, 
+                                              dtype=tf.float32)
+
+      h2 = tf.norm(tgt_hidden_state_fw, order = 1, axis = 1)
+      #print(h2)
+      #tgt_last_output = tgt_output[-1]
+      #self.tgt_seq_embedding = tf.matmul(tgt_last_output, self.tgt_M)
+      
 
   def _def_loss(self):
     # compute src / tgt similarity
